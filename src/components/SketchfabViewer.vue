@@ -55,11 +55,11 @@
 </template>
 
 <script setup>
-import { onMounted, ref, defineEmits } from 'vue'
+import { onMounted, ref } from 'vue'
 import Sketchfab from '@sketchfab/viewer-api'
 import { modelData } from './modelData'
 
-const emit = defineEmits(['clickedUnit'])
+// const emit = defineEmits(['clickedUnit'])
 
 const UID = 'bdf40cfa5c4b466c9ccaf3869f64a3a8'
 const iFrameElement = ref(null)
@@ -71,6 +71,8 @@ const hoveredUnitDetail = ref({})
 const showModal = ref(false)
 const selectedImageForModal = ref({})
 const pointersArray = ref([])
+const floorList = ref([])
+const selectedFloor = ref(null)
 const getAllUnitsWithParentData = (data) => {
   const result = []
 
@@ -180,19 +182,19 @@ function initModel() {
           iFrameElement.value.classList.remove('hidden')
           cameraAnimation(api)
 
-          function recenterCamera() {
-            api.setCameraLookAt(
-              [155.1972980893007, -76.54364457820951, 68.81421152337492],
-              [7.231634037788717, 12.354523892724492, -2.562719243730042],
-              4.3,
-              function (err) {
-                if (!err) {
-                  console.log('Camera moved')
-                }
-                console.log(err)
-              },
-            )
-          }
+          // function recenterCamera() {
+          //   api.setCameraLookAt(
+          //     [155.1972980893007, -76.54364457820951, 68.81421152337492],
+          //     [7.231634037788717, 12.354523892724492, -2.562719243730042],
+          //     4.3,
+          //     function (err) {
+          //       if (!err) {
+          //         console.log('Camera moved')
+          //       }
+          //       console.log(err)
+          //     },
+          //   )
+          // }
           // get nodes data
           api.getNodeMap((err, nodes) => {
             if (!err) {
@@ -201,20 +203,25 @@ function initModel() {
             }
           })
           api.addEventListener('click', function (item) {
-            if (item?.material?.name?.indexOf('Unit_') >= 0) {
-              const untiName = item.material.name?.split('_')[1]
-              const unitDetail = allUnits.value.find((x) => x.box_name === untiName) || ''
-              if (unitDetail) {
-                console.log('unitDetail', unitDetail)
-                emit('clickedUnit', unitDetail.model_name)
-              }
+            if (item?.material?.name?.startsWith('Hover_')) {
+              const unitName = item.material.name?.split('_')[1].split('E')[1]
+              const unit = unitName
+              selectedFloor.value = unit.length === 4 ? unit.slice(0, 2) : unit.slice(0, 1)
+              console.log('selectedFloor', selectedFloor.value)
+              // floorList.value.forEach((floor) => {
+
+              // })
             }
           })
           function setUnits(nodes) {
+            console.log('nodes', nodes)
             for (const index in nodes) {
               const nodeIsUnit = nodes[index].name?.startsWith('Hover_')
 
               const nodeName = nodes[index].name?.split('_')
+              if (nodes[index].name?.startsWith('floor_') && nodes[index].type === "Group") {
+                floorList.value.push(nodes[index])
+              }
               if (nodeIsUnit && allUnitsName.value?.indexOf(nodeName[1]) >= 0) {
                 assignMaterialToUnits(
                   nodes[index],
@@ -279,74 +286,72 @@ function initModel() {
               },
             )
           }
-          document.getElementById('camera-center').addEventListener('click', recenterCamera)
+          // document.getElementById('camera-center').addEventListener('click', recenterCamera)
           document.getElementById('renderUnits').addEventListener('click', resetUnits)
           document.getElementById('toggle-highlights').addEventListener('click', toggleHighlights)
 
           const boxModel = document.querySelector('.box-modal')
           const boxModalHeight = 500
-          api.addEventListener(
-            'nodeMouseEnter',
-            function (item) {
-              if (item?.material?.name?.startsWith('Unit_')) {
-                const hoverdUntiName = item.material.name?.split('_')[1]
-                hoveredUnitDetail.value =
-                  allUnits.value.find((x) => x.box_name === hoverdUntiName) || ''
-                const unitPosition = item.position2D
+          // api.addEventListener('click', function (item) {
+          //   if (item?.material?.name?.startsWith('Unit_')) {
+          //     const unit = item.material.name?.split('_')[1]
+          //     console.log('unit', unit)
+          //   }
+          // })
 
-                const topPosition = unitPosition[1] - 200
-                const bottomPosition = unitPosition[1] - boxModalHeight
+          api.addEventListener('nodeMouseEnter', function (item) {
+            if (item?.material?.name?.startsWith('Unit_')) {
+              const hoverdUntiName = item.material.name?.split('_')[1]
+              hoveredUnitDetail.value =
+                allUnits.value.find((x) => x.box_name === hoverdUntiName) || ''
+              const unitPosition = item.position2D
 
-                if (bottomPosition > window.innerHeight) {
-                  boxModel.style.bottom = 300 + 'px'
-                } else if (topPosition < 0) {
-                  boxModel.style.top = '0px'
+              const topPosition = unitPosition[1] - 200
+              const bottomPosition = unitPosition[1] - boxModalHeight
+
+              if (bottomPosition > window.innerHeight) {
+                boxModel.style.bottom = 300 + 'px'
+              } else if (topPosition < 0) {
+                boxModel.style.top = '0px'
+              } else {
+                boxModel.style.top = topPosition + 'px'
+              }
+              if (boxModel.style.top == '0px') {
+                boxModel.style.top = '17px'
+              }
+
+              if (mode.value === 'both') {
+                if (
+                  unitPosition[0] + boxModel.getBoundingClientRect().width >=
+                  window.innerWidth / 2 + 50
+                ) {
+                  boxModel.style.left = window.innerWidth / 3 - 300 + unitPosition[0] + 'px'
                 } else {
-                  boxModel.style.top = topPosition + 'px'
+                  boxModel.style.left = window.innerWidth / 3 + unitPosition[0] + 'px'
                 }
-                if (boxModel.style.top == '0px') {
-                  boxModel.style.top = '17px'
-                }
-
-                if (mode.value === 'both') {
-                  if (
-                    unitPosition[0] + boxModel.getBoundingClientRect().width >=
-                    window.innerWidth / 2 + 50
-                  ) {
-                    boxModel.style.left = window.innerWidth / 3 - 300 + unitPosition[0] + 'px'
-                  } else {
-                    boxModel.style.left = window.innerWidth / 3 + unitPosition[0] + 'px'
-                  }
-                } else {
-                  boxModel.style.left = unitPosition[0] + 'px'
-                }
+              } else {
+                boxModel.style.left = unitPosition[0] + 'px'
               }
             }
-          )
+          })
 
-          api.addEventListener(
-            'nodeMouseLeave',
-            function () {
-              hoveredUnitDetail.value = {}
-              showModal.value = false
-            },
-          )
+          api.addEventListener('nodeMouseLeave', function () {
+            hoveredUnitDetail.value = {}
+            showModal.value = false
+          })
 
-          api.addEventListener(
-            'annotationSelect',
-            function (index) {
-              if (index >= 0) {
-                const item = pointersArray.value.find((x) => x.identifier == index + 1)
-                if (item) {
-                  selectedImageForModal.value = {
-                    url: item.img,
-                    title: item.title,
-                  }
-                  this.openImageModal()
+          api.addEventListener('annotationSelect', function (index) {
+            if (index >= 0) {
+              const item = pointersArray.value.find((x) => x.identifier == index + 1)
+              if (item) {
+                selectedImageForModal.value = {
+                  url: item.img,
+                  title: item.title,
                 }
+                this.openImageModal()
               }
             }
-          )
+          })
         })
       })
     },
