@@ -1,56 +1,19 @@
 <template>
   <div class="sketchfab-viewer">
     <iframe
-      class="hidden"
-      src=""
+      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
       id="api-frame"
       allow="autoplay; fullscreen; xr-spatial-tracking"
-      xr-spatial-tracking
-      execution-while-out-of-viewport
-      execution-while-not-rendered
-      web-share
-      allowfullscreen
+      allowfullscreen="allowfullscreen"
       mozallowfullscreen="true"
       webkitallowfullscreen="true"
-      width="1500px"
-      height="700px"
+      style="
+        width: 100%;
+        border-color: transparent;
+        transition: height 500ms;
+        height: 100%;
+      "
     ></iframe>
-    <div class="operations flex items-center absolute bottom-[5.5rem] md:bottom-10">
-      <span class="ml-3">
-        <iconAnimation
-          :plus="false"
-          icon="floorplans/Video.svg"
-          customId="camera-center"
-          text="Reset View"
-        >
-        </iconAnimation>
-      </span>
-      <span class="ml-3">
-        <iconAnimation
-          :plus="false"
-          icon="floorplans/show-suites.svg"
-          customId="toggle-highlights"
-          :text="showHighlights ? 'Hide Suites' : 'Show Suites'"
-        ></iconAnimation>
-      </span>
-      <span class="ml-3">
-        <iconAnimation
-          v-if="mode !== 'both'"
-          :plus="false"
-          icon="floorplans/floorplans.svg"
-          :text="mode !== 'both' ? 'Floorplans' : 'Building'"
-          @click="$emit('goToBothView')"
-        ></iconAnimation>
-        <iconAnimation
-          v-else
-          :plus="false"
-          icon="floorplans/floorplans.svg"
-          text="Building"
-          @click="$emit('backToModel3d')"
-        ></iconAnimation>
-      </span>
-    </div>
-    <button id="renderUnits" class="d-none absolute"></button>
   </div>
 </template>
 
@@ -59,20 +22,13 @@ import { onMounted, ref } from 'vue'
 import Sketchfab from '@sketchfab/viewer-api'
 import { modelData } from './modelData'
 
-// const emit = defineEmits(['clickedUnit'])
-
 const UID = 'bdf40cfa5c4b466c9ccaf3869f64a3a8'
 const iFrameElement = ref(null)
 const allUnits = ref([])
 const allUnitsName = ref([])
-const showHighlights = ref(false)
-const mode = ref('both')
-const hoveredUnitDetail = ref({})
-const showModal = ref(false)
-const selectedImageForModal = ref({})
-const pointersArray = ref([])
+
 const floorList = ref([])
-const selectedFloor = ref(null)
+
 const getAllUnitsWithParentData = (data) => {
   const result = []
 
@@ -88,6 +44,7 @@ const getAllUnitsWithParentData = (data) => {
   })
   return result
 }
+
 const setData = (data) => {
   allUnits.value = getAllUnitsWithParentData(data)
 
@@ -99,53 +56,11 @@ const setData = (data) => {
     })
     .filter(Boolean)
 }
+
 const renderWithData = (data) => {
   setData(data)
-  document.getElementById('renderUnits').click()
 }
-const cameraAnimation = (api) => {
-  api.setCameraEasing('easeInOutQuad')
 
-  api.setCameraLookAt(
-    [155.1972980893007, -76.54364457820951, 68.81421152337492],
-    [7.231634037788717, 12.354523892724492, -2.562719243730042],
-    0.0001,
-    function (err) {
-      if (!err) {
-        window.console.log('Camera moved')
-      }
-    },
-  )
-
-  api.setCameraLookAtEndAnimationCallback(function (err) {
-    if (!err) {
-      const cameraData = {
-        fov: 45,
-        nearFarRatio: 0.005,
-        useCameraConstraints: true,
-        usePanConstraints: true,
-        useZoomConstraints: true,
-        usePitchConstraints: true,
-        useYawConstraints: false,
-        zoomIn: 91.254882094374196,
-        zoomOut: 337.6040204624173,
-        left: -3.141593,
-        right: 3.141593,
-        up: 1.555089,
-        down: 0,
-      }
-      api.setCameraConstraints(cameraData, () => {
-        api.setEnableCameraConstraints(
-          true,
-          { preventCameraConstraintsFocus: false },
-          function (err) {
-            console.log('err', err)
-          },
-        )
-      })
-    }
-  })
-}
 function getColorOfUnit(status) {
   let color = ''
   switch (status) {
@@ -168,93 +83,72 @@ function getColorOfUnit(status) {
 
   return color
 }
+
 function initModel() {
   iFrameElement.value = document.getElementById('api-frame')
   const client = new Sketchfab(iFrameElement.value)
 
   client.init(UID, {
     success: (api) => {
-      let selectModels = []
-      let nodesArray = []
+      let selectModels = [];
+      let nodesArray = [];
       api.load()
       api.start(() => {
         api.addEventListener('viewerready', () => {
           iFrameElement.value.classList.remove('hidden')
-          cameraAnimation(api)
 
-          // function recenterCamera() {
-          //   api.setCameraLookAt(
-          //     [155.1972980893007, -76.54364457820951, 68.81421152337492],
-          //     [7.231634037788717, 12.354523892724492, -2.562719243730042],
-          //     4.3,
-          //     function (err) {
-          //       if (!err) {
-          //         console.log('Camera moved')
-          //       }
-          //       console.log(err)
-          //     },
-          //   )
-          // }
-          // get nodes data
           api.getNodeMap((err, nodes) => {
             if (!err) {
-              nodesArray = nodes
               setUnits(nodes)
             }
           })
-          api.addEventListener('click', function (item) {
-            if (item?.material?.name?.startsWith('Hover_')) {
-              const unitName = item.material.name?.split('_')[1].split('E')[1]
-              const unit = unitName
-              selectedFloor.value = unit.length === 4 ? unit.slice(0, 2) : unit.slice(0, 1)
-              console.log('selectedFloor', selectedFloor.value)
-              // floorList.value.forEach((floor) => {
 
-              // })
+          api.addEventListener('click', function (item) {
+            console.log(item)
+            for(let i = 32; i > 27; i--) {
+              api.hide(floorList.value[i].instanceID, function(err) {
+                if (err) {
+                  console.error('Error hiding node:', err);
+                } else {
+                  const floorAvailableNodes = nodesArray.filter(node => node?.name?.includes('W' + Number(i + 5)));
+                  console.log(floorAvailableNodes)
+                  for(let j = 0; j < floorAvailableNodes.length; j++) {
+                    api.hide(floorAvailableNodes[j].instanceID, function(err) {
+                      if (err) {
+                        console.error('Error showing node:', err);
+                      }
+                    });
+                  }
+                }
+              });
             }
           })
-          function setUnits(nodes) {
-            console.log('nodes', nodes)
-            for (const index in nodes) {
-              const nodeIsUnit = nodes[index].name?.startsWith('Hover_')
 
+          function setUnits(nodes) {
+            nodesArray = [];
+            for (const index in nodes) {
+              const nodeIsHover = nodes[index].name?.startsWith('Hover_');
+              const nodeIsUnit = nodes[index].name?.startsWith('Unit_');
+              const nodeIsFloor = nodes[index].name?.startsWith('floor_');
               const nodeName = nodes[index].name?.split('_')
-              if (nodes[index].name?.startsWith('floor_') && nodes[index].type === "Group") {
+              
+              if (nodeIsFloor && nodes[index].type === "Group") {
                 floorList.value.push(nodes[index])
               }
-              if (nodeIsUnit && allUnitsName.value?.indexOf(nodeName[1]) >= 0) {
+              
+              if (nodeIsHover && allUnitsName.value?.indexOf(nodeName[1]) >= 0) {
                 assignMaterialToUnits(
                   nodes[index],
                   allUnits.value[allUnitsName?.value.indexOf(nodeName[1])].status,
                 )
               }
-            }
-          }
-          function toggleHighlights() {
-            if (showHighlights.value) {
-              removeAllMaterials()
-              showHighlights.value = false
-            } else {
-              setUnits(nodesArray)
-              showHighlights.value = true
-            }
-          }
-          function removeAllMaterials() {
-            selectModels.forEach((item) => {
-              if (item.name.indexOf('Unit_') >= 0) {
-                item.channels.Opacity = {
-                  enable: true,
-                  factor: 0.0,
-                }
-                api.setMaterial(item)
+
+              if (nodeIsUnit || nodeIsHover) {
+                nodesArray.push(nodes[index]);
               }
-            })
-            selectModels = []
+            }
           }
-          function resetUnits() {
-            removeAllMaterials()
-            setUnits(nodesArray)
-          }
+
           function assignMaterialToUnits(node, status) {
             api.createMaterial(
               {
@@ -286,78 +180,36 @@ function initModel() {
               },
             )
           }
-          // document.getElementById('camera-center').addEventListener('click', recenterCamera)
-          document.getElementById('renderUnits').addEventListener('click', resetUnits)
-          document.getElementById('toggle-highlights').addEventListener('click', toggleHighlights)
 
-          const boxModel = document.querySelector('.box-modal')
-          const boxModalHeight = 500
-          // api.addEventListener('click', function (item) {
-          //   if (item?.material?.name?.startsWith('Unit_')) {
-          //     const unit = item.material.name?.split('_')[1]
-          //     console.log('unit', unit)
-          //   }
-          // })
-
-          api.addEventListener('nodeMouseEnter', function (item) {
-            if (item?.material?.name?.startsWith('Unit_')) {
-              const hoverdUntiName = item.material.name?.split('_')[1]
-              hoveredUnitDetail.value =
-                allUnits.value.find((x) => x.box_name === hoverdUntiName) || ''
-              const unitPosition = item.position2D
-
-              const topPosition = unitPosition[1] - 200
-              const bottomPosition = unitPosition[1] - boxModalHeight
-
-              if (bottomPosition > window.innerHeight) {
-                boxModel.style.bottom = 300 + 'px'
-              } else if (topPosition < 0) {
-                boxModel.style.top = '0px'
-              } else {
-                boxModel.style.top = topPosition + 'px'
-              }
-              if (boxModel.style.top == '0px') {
-                boxModel.style.top = '17px'
-              }
-
-              if (mode.value === 'both') {
-                if (
-                  unitPosition[0] + boxModel.getBoundingClientRect().width >=
-                  window.innerWidth / 2 + 50
-                ) {
-                  boxModel.style.left = window.innerWidth / 3 - 300 + unitPosition[0] + 'px'
-                } else {
-                  boxModel.style.left = window.innerWidth / 3 + unitPosition[0] + 'px'
-                }
-              } else {
-                boxModel.style.left = unitPosition[0] + 'px'
-              }
-            }
-          })
-
-          api.addEventListener('nodeMouseLeave', function () {
-            hoveredUnitDetail.value = {}
-            showModal.value = false
-          })
-
-          api.addEventListener('annotationSelect', function (index) {
-            if (index >= 0) {
-              const item = pointersArray.value.find((x) => x.identifier == index + 1)
-              if (item) {
-                selectedImageForModal.value = {
-                  url: item.img,
-                  title: item.title,
-                }
-                this.openImageModal()
-              }
-            }
-          })
         })
       })
     },
     error: (e) => {
       console.error('خطا در بارگذاری مدل:', e)
     },
+    annotation: 0,
+    annotations_visible: 1,
+    autospin: 0,
+    autostart: 1,
+    cardboard: 0,
+    camera: 0,
+    preload: 0,
+    ui_stop: 0,
+    transparent: 0,
+    ui_animations: 0,
+    ui_annotations: 1,
+    ui_controls: 0,
+    ui_fullscreen: 0,
+    ui_general_controls: 1,
+    ui_help: 1,
+    ui_hint: 1,
+    ui_infos: 0,
+    ui_inspector: 0,
+    ui_settings: 0,
+    ui_vr: 0,
+    ui_watermark_link: 0,
+    ui_watermark: 0,
+    max_texture_size: 1024,
   })
 }
 
