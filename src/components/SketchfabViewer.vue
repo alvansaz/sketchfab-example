@@ -14,21 +14,28 @@
         height: 100%;
       "
     ></iframe>
+
+    <select name="floors" id="floors" style="position: absolute;right: 50px;bottom: 50px;" @change="selectFloor()" v-model="selectedFloor">
+      <option value="">select floor</option>
+      <option v-for="floor in floorsArray" :key="floor.id" :value="floor.name">{{ floor.name }}</option>
+    </select>
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue'
 import Sketchfab from '@sketchfab/viewer-api'
-import { modelData } from './modelData'
+import { modelData } from './modelData';
+import { floorsArray } from './floorsData';
 
 const UID = 'bdf40cfa5c4b466c9ccaf3869f64a3a8'
 const iFrameElement = ref(null)
 const allUnits = ref([])
 const allUnitsName = ref([])
-
 const floorList = ref([])
-
+const selectModels = ref([])
+const apiInstance = ref(null)
+const selectedFloor = ref('')
 const getAllUnitsWithParentData = (data) => {
   const result = []
 
@@ -90,7 +97,8 @@ function initModel() {
 
   client.init(UID, {
     success: (api) => {
-      let selectModels = [];
+      apiInstance.value = api
+      selectModels.value = []
       let nodesArray = [];
       api.load()
       api.start(() => {
@@ -103,15 +111,17 @@ function initModel() {
             }
           })
 
-          api.addEventListener('click', function (item) {
-            console.log(item)
-            for(let i = 32; i > 27; i--) {
-              api.hide(floorList.value[i].instanceID, function(err) {
+          api.addEventListener('click', function () {
+            let currentFloor = 32;
+            
+            function hideNextFloor() {
+              if (currentFloor <= 27) return;
+              
+              api.hide(floorList.value[currentFloor].instanceID, function(err) {
                 if (err) {
                   console.error('Error hiding node:', err);
                 } else {
-                  const floorAvailableNodes = nodesArray.filter(node => node?.name?.includes('W' + Number(i + 5)));
-                  console.log(floorAvailableNodes)
+                  const floorAvailableNodes = nodesArray.filter(node => node?.name?.includes('W' + Number(currentFloor + 5)));
                   for(let j = 0; j < floorAvailableNodes.length; j++) {
                     api.hide(floorAvailableNodes[j].instanceID, function(err) {
                       if (err) {
@@ -119,9 +129,23 @@ function initModel() {
                       }
                     });
                   }
+
+                  const roofsArray = nodesArray.filter(node => node?.name?.includes("Roof_0" + Number(currentFloor + 5)));
+                  for(let j = 0; j < roofsArray.length; j++) {
+                    api.hide(roofsArray[j].instanceID, function(err) {
+                      if (err) {
+                        console.error('Error showing node:', err);
+                      }
+                    });
+                  }
+                  
+                  currentFloor--;
+                  setTimeout(hideNextFloor, 500); // Wait 500ms before hiding next floor
                 }
               });
             }
+            
+            hideNextFloor();
           })
 
           function setUnits(nodes) {
@@ -130,11 +154,19 @@ function initModel() {
               const nodeIsHover = nodes[index].name?.startsWith('Hover_');
               const nodeIsUnit = nodes[index].name?.startsWith('Unit_');
               const nodeIsFloor = nodes[index].name?.startsWith('floor_');
+              const nodeIsRoof = nodes[index].name?.startsWith('Roof_');
               const nodeName = nodes[index].name?.split('_')
+
+              if(nodeIsRoof) {
+                nodesArray.push(nodes[index]);
+              }
               
               if (nodeIsFloor && nodes[index].type === "Group") {
                 floorList.value.push(nodes[index])
               }
+
+              floorList.value = floorList.value.sort();
+              console.log(floorList.value)
               
               if (nodeIsHover && allUnitsName.value?.indexOf(nodeName[1]) >= 0) {
                 assignMaterialToUnits(
@@ -175,7 +207,7 @@ function initModel() {
               function (err, material) {
                 if (!err) {
                   api.assignMaterial(node, material.id)
-                  selectModels.push(material)
+                  selectModels.value.push(material)
                 }
               },
             )
@@ -209,8 +241,12 @@ function initModel() {
     ui_vr: 0,
     ui_watermark_link: 0,
     ui_watermark: 0,
-    max_texture_size: 1024,
+    max_texture_size: 32,
   })
+}
+
+const selectFloor = () => {
+  console.log(selectedFloor.value)
 }
 
 onMounted(() => {
