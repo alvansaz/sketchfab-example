@@ -152,7 +152,8 @@ const initModel = () => {
             
             // Sort floor list once after collecting all floor nodes
             floorList.value = floorNodes.sort();
-            nodesList.value = nodesArray;
+            nodesList.value = nodesArray.sort();
+            console.log(nodesList.value)
           }
 
           function assignMaterialToUnits(node, status) {
@@ -219,13 +220,27 @@ const initModel = () => {
   })
 }
 
+const showNode = (node) => {
+  apiInstance.value.show(node.instanceID)
+}
+
+const hideNode = (node) => {
+  apiInstance.value.hide(node.instanceID)
+}
+
 const selectFloor = () => {
   if (currentFloor.value > selectedFloor.value) {
     for(let i = currentFloor.value; i >= selectedFloor.value; i--) {
       floorList.value.forEach(node => {
         if(node.name.includes('floor_' + i)) {
-          apiInstance.value.hide(node.instanceID);
+          hideNode(node);
         }
+        
+        const floorAvailableNodes = nodesList.value.filter(node => node?.name?.includes('W' + Number(i)));
+        for(let j = 0; j < floorAvailableNodes.length; j++) {
+          hideNode(floorAvailableNodes[j]);
+        }
+
       });
     }
     
@@ -233,7 +248,12 @@ const selectFloor = () => {
       for(let i = currentFloor.value; i <= selectedFloor.value; i++) {
         floorList.value.forEach(node => {
           if(node.name.includes('floor_' + i)) {
-            apiInstance.value.show(node.instanceID);
+            showNode(node);
+          }
+
+          const floorAvailableNodes = nodesList.value.filter(node => node?.name?.includes('W' + Number(i)));
+          for(let j = 0; j < floorAvailableNodes.length; j++) {
+            showNode(floorAvailableNodes[j]);
           }
         });
       }
