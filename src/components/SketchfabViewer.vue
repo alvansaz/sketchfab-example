@@ -23,19 +23,26 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import Sketchfab from '@sketchfab/viewer-api'
+import { onMounted, ref } from 'vue';
+
+import Sketchfab from '@sketchfab/viewer-api';
+
 import { modelData } from './modelData';
 import { floorsArray } from './floorsData';
 
 const UID = 'bdf40cfa5c4b466c9ccaf3869f64a3a8'
 const iFrameElement = ref(null)
-const allUnits = ref([])
-const allUnitsName = ref([])
-const floorList = ref([])
-const selectModels = ref([])
-const apiInstance = ref(null)
-const selectedFloor = ref('')
+
+const allUnits = ref([]);
+const allUnitsName = ref([]);
+
+const floorList = ref([]);
+const nodesList = ref([]);
+const currentFloor = ref(37);
+const selectModels = ref([]);
+const apiInstance = ref(null);
+const selectedFloor = ref('');
+
 const getAllUnitsWithParentData = (data) => {
   const result = []
 
@@ -68,7 +75,7 @@ const renderWithData = (data) => {
   setData(data)
 }
 
-function getColorOfUnit(status) {
+const getColorOfUnit = (status) => {
   let color = ''
   switch (status) {
     case 'Available':
@@ -91,7 +98,7 @@ function getColorOfUnit(status) {
   return color
 }
 
-function initModel() {
+const initModel = () => {
   iFrameElement.value = document.getElementById('api-frame')
   const client = new Sketchfab(iFrameElement.value)
 
@@ -111,74 +118,41 @@ function initModel() {
             }
           })
 
-          api.addEventListener('click', function () {
-            let currentFloor = 32;
-            
-            function hideNextFloor() {
-              if (currentFloor <= 27) return;
-              
-              api.hide(floorList.value[currentFloor].instanceID, function(err) {
-                if (err) {
-                  console.error('Error hiding node:', err);
-                } else {
-                  const floorAvailableNodes = nodesArray.filter(node => node?.name?.includes('W' + Number(currentFloor + 5)));
-                  for(let j = 0; j < floorAvailableNodes.length; j++) {
-                    api.hide(floorAvailableNodes[j].instanceID, function(err) {
-                      if (err) {
-                        console.error('Error showing node:', err);
-                      }
-                    });
-                  }
-
-                  const roofsArray = nodesArray.filter(node => node?.name?.includes("Roof_0" + Number(currentFloor + 5)));
-                  for(let j = 0; j < roofsArray.length; j++) {
-                    api.hide(roofsArray[j].instanceID, function(err) {
-                      if (err) {
-                        console.error('Error showing node:', err);
-                      }
-                    });
-                  }
-                  
-                  currentFloor--;
-                  setTimeout(hideNextFloor, 500); // Wait 500ms before hiding next floor
-                }
-              });
-            }
-            
-            hideNextFloor();
-          })
+          api.addEventListener('click', function (item) {
+            console.log(item)
+          });
 
           function setUnits(nodes) {
             nodesArray = [];
-            for (const index in nodes) {
-              const nodeIsHover = nodes[index].name?.startsWith('Hover_');
-              const nodeIsUnit = nodes[index].name?.startsWith('Unit_');
-              const nodeIsFloor = nodes[index].name?.startsWith('floor_');
-              const nodeIsRoof = nodes[index].name?.startsWith('Roof_');
-              const nodeName = nodes[index].name?.split('_')
-
-              if(nodeIsRoof) {
-                nodesArray.push(nodes[index]);
+            const floorNodes = [];
+            
+            // Process all nodes in a single pass
+            Object.values(nodes).forEach(node => {
+              const nodeName = node.name || '';
+              const nameParts = nodeName.split('_');
+              
+              // Handle floor nodes
+              if (nodeName.startsWith('floor_') && node.type === "Group") {
+                floorNodes.push(node);
               }
               
-              if (nodeIsFloor && nodes[index].type === "Group") {
-                floorList.value.push(nodes[index])
+              // Handle hover and unit nodes
+              if (nodeName.startsWith('Hover_') || nodeName.startsWith('Unit_')) {
+                nodesArray.push(node);
+                
+                // Only process hover nodes that need material assignment
+                if (nodeName.startsWith('Hover_') && allUnitsName.value?.includes(nameParts[1])) {
+                  const unitIndex = allUnitsName.value.indexOf(nameParts[1]);
+                  if (unitIndex >= 0) {
+                    assignMaterialToUnits(node, allUnits.value[unitIndex].status);
+                  }
+                }
               }
-
-              floorList.value = floorList.value.sort();
-              console.log(floorList.value)
-              
-              if (nodeIsHover && allUnitsName.value?.indexOf(nodeName[1]) >= 0) {
-                assignMaterialToUnits(
-                  nodes[index],
-                  allUnits.value[allUnitsName?.value.indexOf(nodeName[1])].status,
-                )
-              }
-
-              if (nodeIsUnit || nodeIsHover) {
-                nodesArray.push(nodes[index]);
-              }
-            }
+            });
+            
+            // Sort floor list once after collecting all floor nodes
+            floorList.value = floorNodes.sort();
+            nodesList.value = nodesArray;
           }
 
           function assignMaterialToUnits(node, status) {
@@ -246,7 +220,26 @@ function initModel() {
 }
 
 const selectFloor = () => {
-  console.log(selectedFloor.value)
+  if (currentFloor.value > selectedFloor.value) {
+    for(let i = currentFloor.value; i >= selectedFloor.value; i--) {
+      floorList.value.forEach(node => {
+        if(node.name.includes('floor_' + i)) {
+          apiInstance.value.hide(node.instanceID);
+        }
+      });
+    }
+    
+  } else if (currentFloor.value < selectedFloor.value) {
+      for(let i = currentFloor.value; i <= selectedFloor.value; i++) {
+        floorList.value.forEach(node => {
+          if(node.name.includes('floor_' + i)) {
+            apiInstance.value.show(node.instanceID);
+          }
+        });
+      }
+    }
+
+  currentFloor.value = selectedFloor.value;
 }
 
 onMounted(() => {
