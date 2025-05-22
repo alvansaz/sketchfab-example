@@ -57,7 +57,8 @@ const allUnits = ref([]);
 const allUnitsName = ref([]);
 const floorList = ref([]);
 const nodesList = ref([]);
-const currentFloor = ref(37);
+const roofList = ref([]);
+const currentFloor = ref(38);
 const selectModels = ref([]);
 const apiInstance = ref(null);
 const selectedFloor = ref('');
@@ -160,6 +161,7 @@ const assignMaterialToUnit = async (node, status, api) => {
 const processNodes = async (nodes, api) => {
   const floorNodes = [];
   const unitNodes = [];
+  const roofNodes = [];
   const materialPromises = [];
 
   Object.values(nodes).forEach(node => {
@@ -183,6 +185,10 @@ const processNodes = async (nodes, api) => {
         }
       }
     }
+    
+    if (nodeName.startsWith('Roof_')) {
+      roofNodes.push(node);
+    }
   });
 
   // Process materials in parallel
@@ -194,7 +200,7 @@ const processNodes = async (nodes, api) => {
 
   floorList.value = floorNodes.sort();
   nodesList.value = unitNodes.sort();
-
+  roofList.value = roofNodes.sort();
   isModelLoaded.value = true;
 };
 
@@ -214,7 +220,7 @@ const initializeModelNodes = (api) => {
 
 // Floor Management
 const handleFloorChange = () => {
-  const targetFloor = parseInt(selectedFloor.value);
+  const targetFloor = parseInt(selectedFloor.value === 'reset' ? 38 : selectedFloor.value);
   const currentFloorNum = parseInt(currentFloor.value);
 
   if (currentFloorNum > targetFloor) {
@@ -245,6 +251,12 @@ const hideFloorAndUnits = (floorNumber) => {
     }
   });
 
+  roofList.value.forEach(node => {
+    if (node.name.includes(`Roof_${floorNumber}`)) {
+      apiInstance.value.hide(node.instanceID);
+    }
+  });
+
   const floorUnits = nodesList.value.filter(node => 
     node?.name?.includes(`W${floorNumber}`)
   );
@@ -255,6 +267,12 @@ const hideFloorAndUnits = (floorNumber) => {
 const showFloorAndUnits = (floorNumber) => {
   floorList.value.forEach(node => {
     if (node.name.includes(`floor_${floorNumber}`)) {
+      apiInstance.value.show(node.instanceID);
+    }
+  });
+
+  roofList.value.forEach(node => {
+    if (node.name.includes(`Roof_${floorNumber}`)) {
       apiInstance.value.show(node.instanceID);
     }
   });

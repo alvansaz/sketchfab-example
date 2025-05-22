@@ -178,5 +178,10 @@ export const floorsArray = [
       name: "37",
       id: 168,
       order: 37,
+    },
+    {
+      name: "reset",
+      id: 169,
+      order: 38,
     }
 ];
