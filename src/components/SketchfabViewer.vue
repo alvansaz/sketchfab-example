@@ -8,11 +8,15 @@
       mozallowfullscreen="true"
       webkitallowfullscreen="true"
       :class="{ hidden: !isModelLoaded }"
-      style="width: 100%; border-color: transparent; transition: height 500ms; height: 100%;"
+      style="width: 100%; border-color: transparent; transition: height 500ms; height: 100%"
     ></iframe>
 
-    <div v-if="!isModelLoaded" class="loading-container" style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
-      <div class="loading-text" style="font-size: 20px; font-weight: bold;">Loading...</div>
+    <div
+      v-if="!isModelLoaded"
+      class="loading-container"
+      style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center"
+    >
+      <div class="loading-text" style="font-size: 20px; font-weight: bold">Loading...</div>
     </div>
 
     <select
@@ -24,11 +28,7 @@
       @change="handleFloorChange"
     >
       <option value="">select floor</option>
-      <option
-        v-for="floor in floorsArray"
-        :key="floor.id"
-        :value="floor.name"
-      >
+      <option v-for="floor in floorsArray" :key="floor.id" :value="floor.name">
         {{ floor.name }}
       </option>
     </select>
@@ -36,90 +36,90 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
-import Sketchfab from '@sketchfab/viewer-api';
-import { modelData } from './modelData';
-import { floorsArray } from './floorsData';
+import { onMounted, ref } from 'vue'
+import Sketchfab from '@sketchfab/viewer-api'
+import { modelData } from './modelData'
+import { floorsArray } from './floorsData'
 
 // Constants
-const MODEL_UID = 'bdf40cfa5c4b466c9ccaf3869f64a3a8';
+const MODEL_UID = 'bdf40cfa5c4b466c9ccaf3869f64a3a8'
 const UNIT_STATUS_COLORS = {
   Available: [0.1059, 0.8078, 0.4314],
   Sold: [0.8078, 0.2745, 0.1059],
   Unavailable: [0.4784, 0.4784, 0.4784],
   Allocated: [0.1412, 0.3765, 0.902],
-  Reserved: [0.3647, 0.302, 0.7569]
-};
+  Reserved: [0.3647, 0.302, 0.7569],
+}
 
 // State
-const iFrameElement = ref(null);
-const allUnits = ref([]);
-const allUnitsName = ref([]);
-const floorList = ref([]);
-const nodesList = ref([]);
-const roofList = ref([]);
-const currentFloor = ref(38);
-const selectModels = ref([]);
-const apiInstance = ref(null);
-const selectedFloor = ref('');
-const isModelLoaded = ref(false);
-const materialCache = new Map();
+const iFrameElement = ref(null)
+const allUnits = ref([])
+const allUnitsName = ref([])
+const floorList = ref([])
+const nodesList = ref([])
+const roofList = ref([])
+const currentFloor = ref(38)
+const selectModels = ref([])
+const apiInstance = ref(null)
+const selectedFloor = ref('')
+const isModelLoaded = ref(false)
+const materialCache = new Map()
 
 // Utility Functions
-const getUnitColor = (status) => UNIT_STATUS_COLORS[status] || [0, 0, 0];
+const getUnitColor = (status) => UNIT_STATUS_COLORS[status] || [0, 0, 0]
 
 const processUnitsData = (data) => {
-  return data.flatMap(parent =>
-    parent.units.map(unit => ({
+  return data.flatMap((parent) =>
+    parent.units.map((unit) => ({
       ...parent,
       ...unit,
-      units: undefined
-    }))
-  );
-};
+      units: undefined,
+    })),
+  )
+}
 
 const filterValidUnitNames = (units) => {
   return units
-    .map(({ box_name, status }) => status !== 'Conditional' ? box_name : null)
-    .filter(Boolean);
-};
+    .map(({ box_name, status }) => (status !== 'Conditional' ? box_name : null))
+    .filter(Boolean)
+}
 
 // Model Initialization
 const initializeModel = () => {
-  iFrameElement.value = document.getElementById('api-frame');
-  const client = new Sketchfab(iFrameElement.value);
+  iFrameElement.value = document.getElementById('api-frame')
+  const client = new Sketchfab(iFrameElement.value)
 
   client.init(MODEL_UID, {
     success: handleModelSuccess,
     error: handleModelError,
-    ...getViewerConfig()
-  });
-};
+    ...getViewerConfig(),
+  })
+}
 
 const handleModelSuccess = (api) => {
-  apiInstance.value = api;
-  selectModels.value = [];
+  apiInstance.value = api
+  selectModels.value = []
 
-  api.load();
+  api.load()
   api.start(() => {
     api.addEventListener('viewerready', () => {
-      initializeModelNodes(api);
-    });
-  });
-};
+      initializeModelNodes(api)
+    })
+  })
+}
 
 const handleModelError = (error) => {
-  console.error('Model loading error:', error);
-};
+  console.error('Model loading error:', error)
+}
 
 const assignMaterialToUnit = async (node, status, api) => {
-  const cacheKey = `${node.name}_${status}`;
+  const cacheKey = `${node.name}_${status}`
 
   if (materialCache.has(cacheKey)) {
-    const material = materialCache.get(cacheKey);
-    api.assignMaterial(node, material.id);
-    selectModels.value.push(material);
-    return;
+    const material = materialCache.get(cacheKey)
+    api.assignMaterial(node, material.id)
+    selectModels.value.push(material)
+    return
   }
 
   const materialConfig = {
@@ -142,115 +142,115 @@ const assignMaterialToUnit = async (node, status, api) => {
       },
     },
     name: node.name,
-  };
+  }
 
   return new Promise((resolve, reject) => {
     api.createMaterial(materialConfig, (err, material) => {
       if (!err) {
-        materialCache.set(cacheKey, material);
-        api.assignMaterial(node, material.id);
-        selectModels.value.push(material);
-        resolve(material);
+        materialCache.set(cacheKey, material)
+        api.assignMaterial(node, material.id)
+        selectModels.value.push(material)
+        resolve(material)
       } else {
-        reject(err);
+        reject(err)
       }
-    });
-  });
-};
+    })
+  })
+}
 
 const processNodes = async (nodes, api) => {
-  console.log(nodes);
-  const floorNodes = [];
-  const unitNodes = [];
-  const roofNodes = [];
-  const materialPromises = [];
+  const floorNodes = []
+  const unitNodes = []
+  const roofNodes = []
+  const materialPromises = []
 
-  Object.values(nodes).forEach(node => {
-    const nodeName = node.name || '';
+  Object.values(nodes).forEach((node) => {
+    const nodeName = node.name || ''
 
-    if (nodeName.startsWith('floor_') && node.type === "Group") {
-      floorNodes.push(node);
+    if (nodeName.startsWith('floor_') && node.type === 'Group') {
+      floorNodes.push(node)
     }
 
     if (nodeName.startsWith('Hover_') || nodeName.startsWith('Unit_')) {
-      unitNodes.push(node);
+      unitNodes.push(node)
 
       if (nodeName.startsWith('Hover_')) {
-        const unitName = nodeName.split('_')[1];
-        const unitIndex = allUnitsName.value.indexOf(unitName);
+        const unitName = nodeName.split('_')[1]
+        const unitIndex = allUnitsName.value.indexOf(unitName)
 
         if (unitIndex >= 0) {
-          materialPromises.push(
-            assignMaterialToUnit(node, allUnits.value[unitIndex].status, api)
-          );
+          materialPromises.push(assignMaterialToUnit(node, allUnits.value[unitIndex].status, api))
         }
       }
     }
 
     if (nodeName.startsWith('Roof_')) {
-      roofNodes.push(node);
+      roofNodes.push(node)
     }
-  });
+  })
 
   // Process materials in parallel
   try {
-    await Promise.all(materialPromises);
+    await Promise.all(materialPromises)
   } catch (error) {
-    console.error('Error assigning materials:', error);
+    console.error('Error assigning materials:', error)
   }
 
   floorList.value = floorNodes.sort();
   nodesList.value = unitNodes.sort();
   roofList.value = roofNodes.sort();
-  isModelLoaded.value = true;
-};
+  isModelLoaded.value = true
+}
+selectedFloor.value
 
 const initializeModelNodes = (api) => {
   api.getNodeMap((err, nodes) => {
     if (err) {
-      console.error('Error getting node map:', err);
-      return;
+      console.error('Error getting node map:', err)
+      return
     }
-    processNodes(nodes, api).catch(error => {
-      console.error('Error processing nodes:', error);
-    });
-  });
+    processNodes(nodes, api).catch((error) => {
+      console.error('Error processing nodes:', error)
+    })
+  })
 
-  api.addEventListener('click', handleNodeClick);
-};
+  api.addEventListener('click', handleNodeClick)
+}
 
 // Floor Management
 const handleFloorChange = () => {
-  const targetFloor = parseInt(selectedFloor.value === 'reset' ? 38 : selectedFloor.value);
-  const currentFloorNum = parseInt(currentFloor.value);
+  const targetFloor = parseInt(selectedFloor.value === 'reset' ? 38 : selectedFloor.value)
+  const currentFloorNum = parseInt(currentFloor.value)
 
   if (currentFloorNum > targetFloor) {
-    hideFloors(currentFloorNum, targetFloor);
+    hideFloors(currentFloorNum, targetFloor)
   } else if (currentFloorNum < targetFloor) {
-    showFloors(currentFloorNum, targetFloor);
+    showFloors(currentFloorNum, targetFloor)
   }
 
-  currentFloor.value = targetFloor;
-};
+  currentFloor.value = targetFloor
+}
 
 const hideFloors = (from, to) => {
-  console.log(from, to)
   for (let i = from; i >= to; i--) {
-    hideFloorAndUnits(i);
+    hideFloorAndUnits(i)
   }
   findFloorUnits(to, from)
-};
+}
 
 const showFloors = (from, to) => {
-  console.log(from, to)
   for (let i = from; i <= to; i++) {
-    showFloorAndUnits(i);
+    showFloorAndUnits(i)
   }
   findFloorUnits(to, from)
-};
+}
 
 const findFloorUnits = (floorNumber, prevFloor) => {
-  const units = nodesList.value.filter((node) => node?.name?.includes(`Unit_W${floorNumber}`))
+  const expectedLength = floorNumber.toString().length === 2 ? 10 : 9
+  const units = nodesList.value.filter((node) => {
+    const unitName = node?.name || ''
+    return (unitName.includes(`Unit_W${floorNumber}`) || unitName.includes(`Unit_E${floorNumber}`)) && unitName.length === expectedLength
+  })
 
   for (let i = 0; i < units.length; i++) {
     const unit = units[i]
@@ -258,76 +258,94 @@ const findFloorUnits = (floorNumber, prevFloor) => {
       apiInstance.value.show(unit.instanceID)
     }
     if (unit.type === 'MatrixTransform') {
-      console.log(unit)
       apiInstance.value.getMatrix(unit.instanceID, (err, matrix) => {
-        console.log(matrix)
         if (!err) {
           const position = {
             x: matrix.local[12],
             y: matrix.local[13],
             z: matrix.local[14],
-          };
-          console.log(position)
+          }
           apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z * 100], {
             relative: true,
-            duration: 0
-          });
+            duration: 0,
+          })
 
           setTimeout(() => {
             apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z], {
               relative: true,
-              duration: 3
-            });
+              duration: 3,
+            })
           }, 1000)
         }
-      });
+      })
     }
   }
 }
+
 const hideFloorAndUnits = (floorNumber) => {
-  floorList.value.forEach(node => {
+  const unitExpectedLength = floorNumber.toString().length === 2 ? 10 : 9
+  const hoverExpectedLength = floorNumber.toString().length === 2 ? 11 : 10
+
+  floorList.value.forEach((node) => {
     if (node.name.includes(`floor_${floorNumber}`)) {
-      apiInstance.value.hide(node.instanceID);
+      apiInstance.value.hide(node.instanceID)
     }
-  });
+  })
 
-  roofList.value.forEach(node => {
+  roofList.value.forEach((node) => {
     if (node.name.includes(`Roof_${floorNumber}`)) {
-      apiInstance.value.hide(node.instanceID);
+      apiInstance.value.hide(node.instanceID)
     }
-  });
+  })
 
-  const floorUnits = nodesList.value.filter(node =>
-    node?.name?.includes(`W${floorNumber}`)
-  );
+  const floorUnits = nodesList.value.filter(
+    (node) =>
+      ((node?.name?.includes(`Unit_W${floorNumber}`) || node?.name?.includes(`Unit_E${floorNumber}`)) && node.name.length === unitExpectedLength) ||
+      ((node?.name?.includes(`Hover_W${floorNumber}`) || node?.name?.includes(`Hover_E${floorNumber}`)) && node.name.length === hoverExpectedLength),
+  )
 
-  floorUnits.forEach(node => apiInstance.value.hide(node.instanceID));
-};
+  floorUnits.forEach((node) => apiInstance.value.hide(node.instanceID))
+}
 
 const showFloorAndUnits = (floorNumber) => {
-  floorList.value.forEach(node => {
+  const unitExpectedLength = floorNumber.toString().length === 2 ? 10 : 9
+  const hoverExpectedLength = floorNumber.toString().length === 2 ? 11 : 10
+
+  const floorUnits = nodesList.value.filter(
+    (node) =>
+      (node?.name?.includes(`Unit_W${floorNumber}`) || node?.name?.includes(`Unit_E${floorNumber}`)) && node.name.length === unitExpectedLength,
+  )
+
+  floorUnits.forEach((node) => apiInstance.value.show(node.instanceID))
+
+  if (floorNumber === Number(selectedFloor.value)) {
+    return
+  }
+
+  const floorHovers = nodesList.value.filter(
+    (node) =>
+      (node?.name?.includes(`Hover_W${floorNumber}`) || node?.name?.includes(`Hover_E${floorNumber}`)) && node.name.length === hoverExpectedLength,
+  )
+
+  floorHovers.forEach((node) => apiInstance.value.show(node.instanceID))
+
+  floorList.value.forEach((node) => {
     if (node.name.includes(`floor_${floorNumber}`)) {
-      apiInstance.value.show(node.instanceID);
+      apiInstance.value.show(node.instanceID)
     }
-  });
+  })
 
-  roofList.value.forEach(node => {
+  roofList.value.forEach((node) => {
     if (node.name.includes(`Roof_${floorNumber}`)) {
-      apiInstance.value.show(node.instanceID);
+      apiInstance.value.show(node.instanceID)
     }
-  });
-
-  const floorUnits = nodesList.value.filter(node =>
-    node?.name?.includes(`W${floorNumber}`)
-  );
-
-  floorUnits.forEach(node => apiInstance.value.show(node.instanceID));
-};
+  })
+}
 
 // Event Handlers
 const handleNodeClick = (item) => {
-  console.log('Node clicked:', item);
-};
+  console.log('Node clicked:', item)
+}
 
 // Viewer Configuration
 const getViewerConfig = () => ({
@@ -354,14 +372,14 @@ const getViewerConfig = () => ({
   ui_watermark_link: 0,
   ui_watermark: 0,
   max_texture_size: 32,
-});
+})
 
 // Initialization
 onMounted(() => {
-  allUnits.value = processUnitsData(modelData);
-  allUnitsName.value = filterValidUnitNames(allUnits.value);
-  initializeModel();
-});
+  allUnits.value = processUnitsData(modelData)
+  allUnitsName.value = filterValidUnitNames(allUnits.value)
+  initializeModel()
+})
 </script>
 
 <style scoped>
