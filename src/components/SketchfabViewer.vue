@@ -238,7 +238,7 @@ const hideFloors = (from, to) => {
   for (let i = from; i >= to; i--) {
     hideFloorAndUnits(i);
   }
-  // findFloorUnits(to, from)
+  findFloorUnits(to)
 };
 
 const showFloors = (from, to) => {
@@ -246,37 +246,37 @@ const showFloors = (from, to) => {
   for (let i = from; i <= to; i++) {
     showFloorAndUnits(i);
   }
-  // findFloorUnits(to, from)
+  findFloorUnits(to)
 };
-// const findFloorUnits = (floorNumber, prevFloor) => {
-//   const units = nodesList.value.filter((node) => node?.name?.includes(`Unit_W${floorNumber}`))
+const findFloorUnits = (floorNumber) => {
+  const units = nodesList.value.filter((node) => node?.name?.includes(`Unit_W${floorNumber}`))
 
-//   for (let i = 0; i < units.length; i++) {
-//     const unit = units[i]
-//     if (prevFloor > floorNumber) {
-//       apiInstance.value.show(unit.instanceID)
-//     }
-//     if (unit.type === 'MatrixTransform') {
-//       console.log(unit)
-//       const position = {
-//         x: unit?.localMatrix[12],
-//         y: unit?.localMatrix[13],
-//         z: unit?.localMatrix[14],
-//       };
+  for (let i = 0; i < units.length; i++) {
+    const unit = units[i]
+    apiInstance.value.show(unit.instanceID)
+    // if (prevFloor > floorNumber) {
+    // }
+    if (unit.type === 'MatrixTransform') {
+      console.log(unit)
+      const position = {
+        x: unit?.localMatrix[12],
+        y: unit?.localMatrix[13],
+        z: unit?.localMatrix[14],
+      };
 
-//       apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z * 100], {
-//         relative: true,
-//         duration: 0
-//       });
-//       setTimeout(() => {
-//         apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z], {
-//           relative: true,
-//           duration: 3
-//         });
-//       }, 1000)
-//     }
-//   }
-// }
+      apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z * 100], {
+        relative: true,
+        duration: 0
+      });
+      setTimeout(() => {
+        apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z], {
+          relative: false,
+          duration: 3
+        });
+      }, 1000)
+    }
+  }
+}
 const hideFloorAndUnits = (floorNumber) => {
   floorList.value.forEach(node => {
     if (node.name.includes(`floor_${floorNumber}`)) {
