@@ -234,6 +234,7 @@ const handleFloorChange = () => {
 };
 
 const hideFloors = (from, to) => {
+  console.log(from, to)
   for (let i = from; i >= to; i--) {
     hideFloorAndUnits(i);
   }
@@ -241,6 +242,7 @@ const hideFloors = (from, to) => {
 };
 
 const showFloors = (from, to) => {
+  console.log(from, to)
   for (let i = from; i <= to; i++) {
     showFloorAndUnits(i);
   }
@@ -248,28 +250,24 @@ const showFloors = (from, to) => {
 };
 
 const findFloorUnits = (floorNumber, prevFloor) => {
-  console.log(floorNumber, prevFloor)
-  // const prevUnits = nodesList.value.filter((node) => node?.name?.includes(`Unit_W${prevFloor}`))
-  // console.log(prevUnits)
-  // for (let i = 0; i < prevUnits.length; i++) {
-  //   const unit = prevUnits[i]
-  //   apiInstance.value.hide(unit.instanceID)
-  // }
   const units = nodesList.value.filter((node) => node?.name?.includes(`Unit_W${floorNumber}`))
 
   for (let i = 0; i < units.length; i++) {
     const unit = units[i]
-
-    apiInstance.value.show(unit.instanceID)
+    if (prevFloor > floorNumber) {
+      apiInstance.value.show(unit.instanceID)
+    }
     if (unit.type === 'MatrixTransform') {
-      console.log(unit.instanceID)
+      console.log(unit)
       apiInstance.value.getMatrix(unit.instanceID, (err, matrix) => {
+        console.log(matrix)
         if (!err) {
           const position = {
             x: matrix.local[12],
             y: matrix.local[13],
             z: matrix.local[14],
           };
+          console.log(position)
           apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z * 100], {
             relative: true,
             duration: 0
