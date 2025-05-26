@@ -242,7 +242,7 @@ const hideFloors = (from, to) => {
     delayCounter++
   }
   setTimeout(() => {
-    findFloorUnits(to, from);
+    findFloorUnits(to);
   }, 2000)
 };
 
@@ -255,11 +255,11 @@ const showFloors = (from, to) => {
     delayCounter++
   }
   setTimeout(() => {
-    findFloorUnits(to, from);
+    findFloorUnits(to);
   }, 2000)
 };
 
-const findFloorUnits = (floorNumber, prevFloor) => {
+const findFloorUnits = (floorNumber) => {
   const expectedLength = floorNumber.toString().length === 2 ? 10 : 9;
   const units = nodesList.value.filter((node) => {
     const unitName = node?.name || '';
@@ -271,16 +271,12 @@ const findFloorUnits = (floorNumber, prevFloor) => {
 
   for (let i = 0; i < units.length; i++) {
     const unit = units[i];
-    if (prevFloor > floorNumber) {
-      apiInstance.value.show(unit.instanceID);
-    }
+    apiInstance.value.show(unit.instanceID);
     if (unit.type === 'MatrixTransform') {
-      apiInstance.value.getMatrix(unit.instanceID, (err, matrix) => {
-        if (!err) {
-          const position = {
-            x: matrix.local[12],
-            y: matrix.local[13],
-            z: matrix.local[14],
+      const position = {
+            x: unit.localMatrix[12],
+            y: unit.localMatrix[13],
+            z: unit.localMatrix[14],
           };
           apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z * 100], {
             relative: true,
@@ -293,8 +289,11 @@ const findFloorUnits = (floorNumber, prevFloor) => {
               duration: 3,
             });
           }, 1000);
-        }
-      });
+      // apiInstance.value.getMatrix(unit.instanceID, (err, matrix) => {
+      //   if (!err) {
+
+      //   }
+      // });
     }
   }
 };
@@ -331,19 +330,19 @@ const hideFloorAndUnits = (floorNumber) => {
 };
 
 const showFloorAndUnits = (floorNumber) => {
-  const unitExpectedLength = floorNumber.toString().length === 2 ? 10 : 9;
+  // const unitExpectedLength = floorNumber.toString().length === 2 ? 10 : 9;
   const hoverExpectedLength = floorNumber.toString().length === 2 ? 11 : 10;
   const floorExpectedLength = floorNumber.toString().length === 2 ? 8 : 7;
   const roofExpectedLength = floorNumber.toString().length === 2 ? 7 : 6;
 
-  const floorUnits = nodesList.value.filter(
-    (node) =>
-      (node?.name?.includes(`Unit_W${floorNumber}`) ||
-        node?.name?.includes(`Unit_E${floorNumber}`)) &&
-      node.name.length === unitExpectedLength,
-  );
+  // const floorUnits = nodesList.value.filter(
+  //   (node) =>
+  //     (node?.name?.includes(`Unit_W${floorNumber}`) ||
+  //       node?.name?.includes(`Unit_E${floorNumber}`)) &&
+  //     node.name.length === unitExpectedLength,
+  // );
 
-  floorUnits.forEach((node) => apiInstance.value.show(node.instanceID));
+  // floorUnits.forEach((node) => apiInstance.value.show(node.instanceID));
 
   if (floorNumber === Number(selectedFloor.value)) {
     return;
