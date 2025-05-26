@@ -8,11 +8,15 @@
       mozallowfullscreen="true"
       webkitallowfullscreen="true"
       :class="{ hidden: !isModelLoaded }"
-      style="width: 100%; border-color: transparent; transition: height 500ms; height: 100%;"
+      style="width: 100%; border-color: transparent; transition: height 500ms; height: 100%"
     ></iframe>
 
-    <div v-if="!isModelLoaded" class="loading-container" style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
-      <div class="loading-text" style="font-size: 20px; font-weight: bold;">Loading...</div>
+    <div
+      v-if="!isModelLoaded"
+      class="loading-container"
+      style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center"
+    >
+      <div class="loading-text" style="font-size: 20px; font-weight: bold">Loading...</div>
     </div>
 
     <select
@@ -24,11 +28,7 @@
       @change="handleFloorChange"
     >
       <option value="">select floor</option>
-      <option
-        v-for="floor in floorsArray"
-        :key="floor.id"
-        :value="floor.name"
-      >
+      <option v-for="floor in floorsArray" :key="floor.id" :value="floor.name">
         {{ floor.name }}
       </option>
     </select>
@@ -43,12 +43,14 @@ import { floorsArray } from './floorsData';
 
 // Constants
 const MODEL_UID = 'bdf40cfa5c4b466c9ccaf3869f64a3a8';
+const TRANSITION_DELAY_MS = 50
+
 const UNIT_STATUS_COLORS = {
   Available: [0.1059, 0.8078, 0.4314],
   Sold: [0.8078, 0.2745, 0.1059],
   Unavailable: [0.4784, 0.4784, 0.4784],
   Allocated: [0.1412, 0.3765, 0.902],
-  Reserved: [0.3647, 0.302, 0.7569]
+  Reserved: [0.3647, 0.302, 0.7569],
 };
 
 // State
@@ -69,18 +71,18 @@ const materialCache = new Map();
 const getUnitColor = (status) => UNIT_STATUS_COLORS[status] || [0, 0, 0];
 
 const processUnitsData = (data) => {
-  return data.flatMap(parent =>
-    parent.units.map(unit => ({
+  return data.flatMap((parent) =>
+    parent.units.map((unit) => ({
       ...parent,
       ...unit,
-      units: undefined
-    }))
+      units: undefined,
+    })),
   );
 };
 
 const filterValidUnitNames = (units) => {
   return units
-    .map(({ box_name, status }) => status !== 'Conditional' ? box_name : null)
+    .map(({ box_name, status }) => (status !== 'Conditional' ? box_name : null))
     .filter(Boolean);
 };
 
@@ -92,7 +94,7 @@ const initializeModel = () => {
   client.init(MODEL_UID, {
     success: handleModelSuccess,
     error: handleModelError,
-    ...getViewerConfig()
+    ...getViewerConfig(),
   });
 };
 
@@ -159,16 +161,15 @@ const assignMaterialToUnit = async (node, status, api) => {
 };
 
 const processNodes = async (nodes, api) => {
-  console.log(nodes);
   const floorNodes = [];
   const unitNodes = [];
   const roofNodes = [];
   const materialPromises = [];
 
-  Object.values(nodes).forEach(node => {
+  Object.values(nodes).forEach((node) => {
     const nodeName = node.name || '';
 
-    if (nodeName.startsWith('floor_') && node.type === "Group") {
+    if (nodeName.startsWith('floor_') && node.type === 'Group') {
       floorNodes.push(node);
     }
 
@@ -180,9 +181,7 @@ const processNodes = async (nodes, api) => {
         const unitIndex = allUnitsName.value.indexOf(unitName);
 
         if (unitIndex >= 0) {
-          materialPromises.push(
-            assignMaterialToUnit(node, allUnits.value[unitIndex].status, api)
-          );
+          materialPromises.push(assignMaterialToUnit(node, allUnits.value[unitIndex].status, api));
         }
       }
     }
@@ -204,6 +203,7 @@ const processNodes = async (nodes, api) => {
   roofList.value = roofNodes.sort();
   isModelLoaded.value = true;
 };
+selectedFloor.value;
 
 const initializeModelNodes = (api) => {
   api.getNodeMap((err, nodes) => {
@@ -211,7 +211,7 @@ const initializeModelNodes = (api) => {
       console.error('Error getting node map:', err);
       return;
     }
-    processNodes(nodes, api).catch(error => {
+    processNodes(nodes, api).catch((error) => {
       console.error('Error processing nodes:', error);
     });
   });
@@ -234,88 +234,146 @@ const handleFloorChange = () => {
 };
 
 const hideFloors = (from, to) => {
-  console.log(from, to)
+  let delayCounter = 0
   for (let i = from; i >= to; i--) {
-    hideFloorAndUnits(i);
+    setTimeout(() => {
+      hideFloorAndUnits(i);
+    }, delayCounter * TRANSITION_DELAY_MS);
+    delayCounter++
   }
-  findFloorUnits(to)
+  setTimeout(() => {
+    findFloorUnits(to, from);
+  }, 2000)
 };
 
 const showFloors = (from, to) => {
-  console.log(from, to)
+  let delayCounter = 0
   for (let i = from; i <= to; i++) {
-    showFloorAndUnits(i);
+    setTimeout(() => {
+      showFloorAndUnits(i);
+    }, delayCounter * TRANSITION_DELAY_MS);
+    delayCounter++
   }
-  findFloorUnits(to)
+  setTimeout(() => {
+    findFloorUnits(to, from);
+  }, 2000)
 };
-const findFloorUnits = (floorNumber) => {
-  const units = nodesList.value.filter((node) => node?.name?.includes(`Unit_W${floorNumber}`))
+
+const findFloorUnits = (floorNumber, prevFloor) => {
+  const expectedLength = floorNumber.toString().length === 2 ? 10 : 9;
+  const units = nodesList.value.filter((node) => {
+    const unitName = node?.name || '';
+    return (
+      (unitName.includes(`Unit_W${floorNumber}`) || unitName.includes(`Unit_E${floorNumber}`)) &&
+      unitName.length === expectedLength
+    );
+  });
 
   for (let i = 0; i < units.length; i++) {
-    const unit = units[i]
-    apiInstance.value.show(unit.instanceID)
-    // if (prevFloor > floorNumber) {
-    // }
+    const unit = units[i];
+    if (prevFloor > floorNumber) {
+      apiInstance.value.show(unit.instanceID);
+    }
     if (unit.type === 'MatrixTransform') {
-      console.log(unit)
-      const position = {
-        x: unit?.localMatrix[12],
-        y: unit?.localMatrix[13],
-        z: unit?.localMatrix[14],
-      };
+      apiInstance.value.getMatrix(unit.instanceID, (err, matrix) => {
+        if (!err) {
+          const position = {
+            x: matrix.local[12],
+            y: matrix.local[13],
+            z: matrix.local[14],
+          };
+          apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z * 100], {
+            relative: true,
+            duration: 0,
+          });
 
-      apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z * 100], {
-        relative: true,
-        duration: 0
+          setTimeout(() => {
+            apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z], {
+              relative: true,
+              duration: 3,
+            });
+          }, 1000);
+        }
       });
-      setTimeout(() => {
-        apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z], {
-          relative: false,
-          duration: 3
-        });
-      }, 1000)
     }
   }
-}
+};
+
 const hideFloorAndUnits = (floorNumber) => {
-  floorList.value.forEach(node => {
-    if (node.name.includes(`floor_${floorNumber}`)) {
+  const unitExpectedLength = floorNumber.toString().length === 2 ? 10 : 9;
+  const hoverExpectedLength = floorNumber.toString().length === 2 ? 11 : 10;
+  const floorExpectedLength = floorNumber.toString().length === 2 ? 8 : 7;
+  const roofExpectedLength = floorNumber.toString().length === 2 ? 7 : 6;
+
+  floorList.value.forEach((node) => {
+    if (node.name.includes(`floor_${floorNumber}`) && node.name.length === floorExpectedLength) {
       apiInstance.value.hide(node.instanceID);
     }
   });
 
-  roofList.value.forEach(node => {
-    if (node.name.includes(`Roof_${floorNumber}`)) {
+  roofList.value.forEach((node) => {
+    if (node.name.includes(`Roof_${floorNumber}`) && node.name.length === roofExpectedLength) {
       apiInstance.value.hide(node.instanceID);
     }
   });
 
-  const floorUnits = nodesList.value.filter(node =>
-    node?.name?.includes(`W${floorNumber}`)
+  const floorUnits = nodesList.value.filter(
+    (node) =>
+      ((node?.name?.includes(`Unit_W${floorNumber}`) ||
+        node?.name?.includes(`Unit_E${floorNumber}`)) &&
+        node.name.length === unitExpectedLength) ||
+      ((node?.name?.includes(`Hover_W${floorNumber}`) ||
+        node?.name?.includes(`Hover_E${floorNumber}`)) &&
+        node.name.length === hoverExpectedLength),
   );
 
-  floorUnits.forEach(node => apiInstance.value.hide(node.instanceID));
+  floorUnits.forEach((node) => apiInstance.value.hide(node.instanceID));
 };
 
 const showFloorAndUnits = (floorNumber) => {
-  floorList.value.forEach(node => {
-    if (node.name.includes(`floor_${floorNumber}`)) {
-      apiInstance.value.show(node.instanceID);
-    }
-  });
+  const unitExpectedLength = floorNumber.toString().length === 2 ? 10 : 9;
+  const hoverExpectedLength = floorNumber.toString().length === 2 ? 11 : 10;
+  const floorExpectedLength = floorNumber.toString().length === 2 ? 8 : 7;
+  const roofExpectedLength = floorNumber.toString().length === 2 ? 7 : 6;
 
-  roofList.value.forEach(node => {
-    if (node.name.includes(`Roof_${floorNumber}`)) {
-      apiInstance.value.show(node.instanceID);
-    }
-  });
-
-  const floorUnits = nodesList.value.filter(node =>
-    node?.name?.includes(`W${floorNumber}`)
+  const floorUnits = nodesList.value.filter(
+    (node) =>
+      (node?.name?.includes(`Unit_W${floorNumber}`) ||
+        node?.name?.includes(`Unit_E${floorNumber}`)) &&
+      node.name.length === unitExpectedLength,
   );
 
-  floorUnits.forEach(node => apiInstance.value.show(node.instanceID));
+  floorUnits.forEach((node) => apiInstance.value.show(node.instanceID));
+
+  if (floorNumber === Number(selectedFloor.value)) {
+    return;
+  }
+
+  const floorHovers = nodesList.value.filter(
+    (node) =>
+      (node?.name?.includes(`Hover_W${floorNumber}`) ||
+        node?.name?.includes(`Hover_E${floorNumber}`)) &&
+      node.name.length === hoverExpectedLength,
+  );
+
+  floorHovers.forEach((node) => apiInstance.value.show(node.instanceID));
+
+  floorList.value.forEach((node) => {
+    if (node.name.includes(`floor_${floorNumber}`) && node.name.length === floorExpectedLength) {
+      apiInstance.value.show(node.instanceID);
+    }
+  });
+
+  roofList.value.forEach((node) => {
+    if (node.name.includes(`Roof_${floorNumber}`) && node.name.length === roofExpectedLength) {
+      apiInstance.value.show(node.instanceID);
+    }
+  });
 };
+
+
+
+
 
 // Event Handlers
 const handleNodeClick = (item) => {
