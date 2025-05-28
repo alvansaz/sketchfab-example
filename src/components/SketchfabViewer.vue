@@ -133,7 +133,7 @@ const assignMaterialToUnit = async (node, status, api) => {
       },
       Opacity: {
         enable: true,
-        factor: 0.3,
+        factor: node.name.startsWith('Unit_') ? 1 : 0.3,
         invert: false,
         ior: 3.5,
       },
@@ -176,7 +176,7 @@ const processNodes = async (nodes, api) => {
     if (nodeName.startsWith('Hover_') || nodeName.startsWith('Unit_')) {
       unitNodes.push(node);
 
-      if (nodeName.startsWith('Hover_')) {
+      if (nodeName.startsWith('Hover_') || nodeName.startsWith('Unit_')) {
         const unitName = nodeName.split('_')[1];
         const unitIndex = allUnitsName.value.indexOf(unitName);
 
@@ -217,10 +217,9 @@ const initializeModelNodes = (api) => {
       console.error('Error processing nodes:', error);
     });
   });
+  // save camera possition and target at first load
   api.getCameraLookAt(function (err, camera) {
     if (!err) {
-      window.console.log('camera.position', camera.position) // [x, y, z]
-      window.console.log('camera.target', camera.target) // [x, y, z]
       centerCamera.value.x = camera.position[0]
       centerCamera.value.y = camera.position[1]
       centerCamera.value.z = camera.position[2]
@@ -229,10 +228,6 @@ const initializeModelNodes = (api) => {
       targetCamera.value.z = camera.target[2]
     }
   })
-  console.log('center', centerCamera.value)
-  console.log('target', targetCamera.value)
-
-
   api.addEventListener('click', handleNodeClick);
 };
 
@@ -249,7 +244,27 @@ const handleFloorChange = () => {
 
   currentFloor.value = targetFloor;
 };
-
+const handleCameraPosition = () => {
+    // set camera possition and target
+    apiInstance.value.getSceneGraph((err) => {
+    if (!err) {
+      apiInstance.value.setCameraLookAt(
+        [
+          56.69909669679473,
+          35.59121868862845,
+          // base start from 110
+          +selectedFloor.value < 30 ?  +selectedFloor.value + 110 : +selectedFloor.value + 150
+        ],
+        [
+          56.69909669679473,
+          35.59121868862845,   // Target Y: center of model
+          targetCamera.value.z  // Target Z: the cut floor level
+        ],
+        4.3
+      );
+    }
+  });
+}
 const hideFloors = (from, to) => {
   let delayCounter = 0
   for (let i = from; i >= to; i--) {
@@ -258,12 +273,14 @@ const hideFloors = (from, to) => {
     }, delayCounter * TRANSITION_DELAY_MS);
     delayCounter++
   }
+  handleCameraPosition()
   setTimeout(() => {
     findFloorUnits(to);
   }, 2000)
 };
 
 const showFloors = (from, to) => {
+  handleCameraPosition()
   let delayCounter = 0
   for (let i = from; i <= to; i++) {
     setTimeout(() => {
@@ -288,7 +305,9 @@ const findFloorUnits = (floorNumber) => {
 
   for (let i = 0; i < units.length; i++) {
     const unit = units[i];
+
     apiInstance.value.show(unit.instanceID);
+
     if (unit.type === 'MatrixTransform') {
       const position = {
         x: unit.localMatrix[12],
@@ -305,112 +324,9 @@ const findFloorUnits = (floorNumber) => {
           duration: 3,
         });
       }, 1000);
+
     }
   }
-
-    // Get scene graph to calculate model bounds and floor position
-  apiInstance.value.getSceneGraph((err) => {
-    if (!err) {
-            // Find the actual floor position by looking for floor nodes
-      const floorExpectedLength = floorNumber.toString().length === 2 ? 8 : 7;
-      const currentFloorNode = floorList.value.find((node) =>
-        node.name.includes(`floor_${floorNumber}`) && node.name.length === floorExpectedLength
-      );
-
-      let floorZPosition = 0; // Default floor position
-      let modelCenterX = 0;
-      let modelCenterY = 0;
-
-      console.log('Looking for floor:', `floor_${floorNumber}`, 'Expected length:', floorExpectedLength);
-      console.log('Available floor nodes:', floorList.value.map(n => n.name));
-      console.log('Found floor node:', currentFloorNode);
-
-      if (currentFloorNode && currentFloorNode.localMatrix) {
-        // Get the actual Z position of the cut floor
-        floorZPosition = currentFloorNode.localMatrix[14];
-        // For X and Y, use a more conservative approach to stay centered
-        modelCenterX = 0; // Keep camera at model center X
-        modelCenterY = 0; // Keep camera at model center Y
-        console.log('Floor matrix positions - Z:', floorZPosition);
-        console.log('Using model center X,Y: 0, 0 to stay above model');
-      } else {
-        console.log('No floor node found or no localMatrix, using defaults');
-        // Try to get center from any visible unit for Z position
-        const anyUnit = units.find(unit => unit.localMatrix);
-        if (anyUnit) {
-          floorZPosition = anyUnit.localMatrix[14];
-          console.log('Using unit Z position as reference:', floorZPosition);
-        }
-        // Keep X,Y at center regardless
-        modelCenterX = 0;
-        modelCenterY = 0;
-      }
-
-      // Calculate camera height based on floor spacing
-      // Use a more reliable approach for camera height
-      let cameraHeight = 50; // Default height
-
-      try {
-        // Try to calculate based on floor numbers
-        const floorNumbers = floorsArray.map(f => parseInt(f.name)).filter(n => !isNaN(n));
-        if (floorNumbers.length > 0) {
-          const maxFloor = Math.max(...floorNumbers);
-          const minFloor = Math.min(...floorNumbers);
-          const estimatedFloorHeight = 3.5; // Estimated height per floor
-          const totalModelHeight = (maxFloor - minFloor) * estimatedFloorHeight;
-
-          if (!isNaN(totalModelHeight) && totalModelHeight > 0) {
-            cameraHeight = floorZPosition + totalModelHeight * 0.8;
-          } else {
-            // Fallback: use current floor number for height calculation
-            cameraHeight = floorZPosition + (parseInt(floorNumber) * 2) + 30;
-          }
-        } else {
-          // Fallback: use current floor number for height calculation
-          cameraHeight = floorZPosition + (parseInt(floorNumber) * 2) + 30;
-        }
-      } catch (error) {
-        console.warn('Error calculating camera height, using fallback:', error);
-        cameraHeight = floorZPosition + (parseInt(floorNumber) * 2) + 30;
-      }
-
-      // Ensure camera height is valid
-      if (isNaN(cameraHeight) || cameraHeight <= floorZPosition) {
-        cameraHeight = floorZPosition + 50; // Safe fallback
-      }
-
-      // Position camera above model center, always targeting the model center
-      apiInstance.value.setCameraLookAt(
-        [
-          modelCenterX,   // X: center of model
-          modelCenterY,   // Y: center of model
-          cameraHeight    // Z: above the model
-        ],
-        [
-          modelCenterX,   // Target X: center of model
-          modelCenterY,   // Target Y: center of model
-          0               // Target Z: always center of model (0)
-        ],
-        4.3,
-        function (err) {
-          if (!err) {
-            window.console.log('Camera moved to top view')
-            window.console.log('Camera position:', [modelCenterX, modelCenterY, cameraHeight])
-            window.console.log('Camera target (model center):', [modelCenterX, modelCenterY, 0])
-            window.console.log('Floor Z position:', floorZPosition)
-          }
-        }
-      );
-    } else {
-      console.error('Error getting scene graph:', err);
-      // Fallback to simple positioning
-      apiInstance.value.setCameraLookAt(
-        [0, 0, 50], // Simple top view
-        [0, 0, 0],  // Look at center
-        4.3
-      );
-    }
-  });
 };
 
 const hideFloorAndUnits = (floorNumber) => {
