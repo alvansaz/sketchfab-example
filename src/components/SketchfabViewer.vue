@@ -276,7 +276,7 @@ const hideFloors = (from, to) => {
   handleCameraPosition()
   setTimeout(() => {
     findFloorUnits(to);
-  }, 2000)
+  }, 800)
 };
 
 const showFloors = (from, to) => {
@@ -290,7 +290,7 @@ const showFloors = (from, to) => {
   }
   setTimeout(() => {
     findFloorUnits(to);
-  }, 2000)
+  }, 800)
 };
 
 const findFloorUnits = (floorNumber) => {
@@ -318,12 +318,15 @@ const findFloorUnits = (floorNumber) => {
         relative: true,
         duration: 0,
       });
+
+      // Add sequential delay for each unit (300ms apart)
+      const unitDelay = 100 + (i * 30);
       setTimeout(() => {
         apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z], {
           relative: true,
           duration: 3,
         });
-      }, 1000);
+      }, unitDelay);
 
     }
   }
