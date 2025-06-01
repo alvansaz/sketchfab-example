@@ -309,11 +309,15 @@ const findFloorUnits = (floorNumber) => {
     apiInstance.value.show(unit.instanceID);
 
     if (unit.type === 'MatrixTransform') {
+      const z = unit.localMatrix[14]
+      const positionZ = z < 0 ? Math.abs(z) : z
+      const finalZ = z < 0 ? positionZ * -1 : positionZ
       const position = {
         x: unit.localMatrix[12],
         y: unit.localMatrix[13],
-        z: unit.localMatrix[14],
+        z: positionZ,
       };
+      console.log(position)
       apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z * 100], {
         relative: true,
         duration: 0,
@@ -322,7 +326,7 @@ const findFloorUnits = (floorNumber) => {
       // Add sequential delay for each unit (300ms apart)
       const unitDelay = 100 + i * 30;
       setTimeout(() => {
-        apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z], {
+        apiInstance.value.translate(unit.instanceID, [position.x, position.y, finalZ], {
           relative: true,
           duration: 3,
         });
