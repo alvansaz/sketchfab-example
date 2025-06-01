@@ -32,14 +32,24 @@
         {{ floor.name }}
       </option>
     </select>
+
+    <modelDetailPopup
+      :hoveredUnitDetail="hoveredUnitDetail"
+      @mouseoverModal="mouseoverModal"
+      v-show="hoveredUnitDetail && Object.keys(hoveredUnitDetail).length != 0"
+    />
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue';
+
 import Sketchfab from '@sketchfab/viewer-api';
+
 import { modelData } from './modelData';
 import { floorsArray } from './floorsData';
+
+import modelDetailPopup from './modelDetailPopup.vue';
 
 // Constants
 const MODEL_UID = 'bdf40cfa5c4b466c9ccaf3869f64a3a8';
@@ -66,6 +76,7 @@ const apiInstance = ref(null);
 const selectedFloor = ref('');
 const isModelLoaded = ref(false);
 const materialCache = new Map();
+const hoveredUnitDetail = ref('');
 
 // Utility Functions
 const getUnitColor = (status) => UNIT_STATUS_COLORS[status] || [0, 0, 0];
@@ -112,6 +123,10 @@ const handleModelSuccess = (api) => {
 
 const handleModelError = (error) => {
   console.error('Model loading error:', error);
+};
+
+const mouseoverModal = () => {
+  hoveredUnitDetail.value = {};
 };
 
 const assignMaterialToUnit = async (node, status, api) => {
@@ -229,6 +244,8 @@ const initializeModelNodes = (api) => {
     }
   });
   api.addEventListener('click', handleNodeClick);
+  api.addEventListener('nodeMouseEnter', handleNodeMouseEnter);
+  api.addEventListener('nodeMouseLeave', handleNodeMouseLeave);
 };
 
 // Floor Management
@@ -416,6 +433,38 @@ const handleNodeClick = (item) => {
     selectedFloor.value = floorNumber;
     handleFloorChange();
   }
+};
+
+const handleNodeMouseEnter = (item) => {
+  const boxModel = document.querySelector('.box-modal');
+  const boxModalHeight = 500;
+
+  if (item?.material?.name.indexOf('Hover_') >= 0) {
+    const hoverdUntiName = item.material.name.split('_')[1];
+    hoveredUnitDetail.value = allUnits.value.find((x) => x.box_name === hoverdUntiName) || '';
+    const unitPosition = item.position2D;
+
+    const topPosition = unitPosition[1] - 200;
+    const bottomPosition = unitPosition[1] - boxModalHeight;
+
+    if (bottomPosition > window.innerHeight) {
+      boxModel.style.bottom = 'px';
+    } else if (topPosition < 0) {
+      boxModel.style.top = '0px';
+    } else {
+      boxModel.style.top = topPosition + 'px';
+    }
+    if (boxModel.style.top == '0px') {
+      boxModel.style.top = '17px';
+    }
+
+    boxModel.style.left = unitPosition[0] + 'px';
+    
+  }
+};
+
+const handleNodeMouseLeave = () => {
+  hoveredUnitDetail.value = {};
 };
 
 // Viewer Configuration
