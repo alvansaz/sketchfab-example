@@ -43,7 +43,7 @@ import { floorsArray } from './floorsData';
 
 // Constants
 const MODEL_UID = 'bdf40cfa5c4b466c9ccaf3869f64a3a8';
-const TRANSITION_DELAY_MS = 50
+const TRANSITION_DELAY_MS = 50;
 
 const UNIT_STATUS_COLORS = {
   Available: [0.1059, 0.8078, 0.4314],
@@ -204,8 +204,8 @@ const processNodes = async (nodes, api) => {
   isModelLoaded.value = true;
 };
 selectedFloor.value;
-const centerCamera = ref({ x: null, y: null, z: null })
-const targetCamera = ref({ x: null, y: null, z: null })
+const centerCamera = ref({ x: null, y: null, z: null });
+const targetCamera = ref({ x: null, y: null, z: null });
 
 const initializeModelNodes = (api) => {
   api.getNodeMap((err, nodes) => {
@@ -220,14 +220,14 @@ const initializeModelNodes = (api) => {
   // save camera possition and target at first load
   api.getCameraLookAt(function (err, camera) {
     if (!err) {
-      centerCamera.value.x = camera.position[0]
-      centerCamera.value.y = camera.position[1]
-      centerCamera.value.z = camera.position[2]
-      targetCamera.value.x = camera.target[0]
-      targetCamera.value.y = camera.target[1]
-      targetCamera.value.z = camera.target[2]
+      centerCamera.value.x = camera.position[0];
+      centerCamera.value.y = camera.position[1];
+      centerCamera.value.z = camera.position[2];
+      targetCamera.value.x = camera.target[0];
+      targetCamera.value.y = camera.target[1];
+      targetCamera.value.z = camera.target[2];
     }
-  })
+  });
   api.addEventListener('click', handleNodeClick);
 };
 
@@ -245,52 +245,52 @@ const handleFloorChange = () => {
   currentFloor.value = targetFloor;
 };
 const handleCameraPosition = () => {
-    // set camera possition and target
-    apiInstance.value.getSceneGraph((err) => {
+  // set camera possition and target
+  apiInstance.value.getSceneGraph((err) => {
     if (!err) {
       apiInstance.value.setCameraLookAt(
         [
           56.69909669679473,
           35.59121868862845,
           // base start from 110
-          +selectedFloor.value < 30 ?  +selectedFloor.value + 110 : +selectedFloor.value + 150
+          +selectedFloor.value < 30 ? +selectedFloor.value + 110 : +selectedFloor.value + 150,
         ],
         [
           56.69909669679473,
-          35.59121868862845,   // Target Y: center of model
-          targetCamera.value.z  // Target Z: the cut floor level
+          35.59121868862845, // Target Y: center of model
+          targetCamera.value.z, // Target Z: the cut floor level
         ],
-        4.3
+        4.3,
       );
     }
   });
-}
+};
 const hideFloors = (from, to) => {
-  let delayCounter = 0
+  let delayCounter = 0;
   for (let i = from; i >= to; i--) {
     setTimeout(() => {
       hideFloorAndUnits(i);
     }, delayCounter * TRANSITION_DELAY_MS);
-    delayCounter++
+    delayCounter++;
   }
-  handleCameraPosition()
+  handleCameraPosition();
   setTimeout(() => {
     findFloorUnits(to);
-  }, 800)
+  }, 800);
 };
 
 const showFloors = (from, to) => {
-  handleCameraPosition()
-  let delayCounter = 0
+  handleCameraPosition();
+  let delayCounter = 0;
   for (let i = from; i <= to; i++) {
     setTimeout(() => {
       showFloorAndUnits(i);
     }, delayCounter * TRANSITION_DELAY_MS);
-    delayCounter++
+    delayCounter++;
   }
   setTimeout(() => {
     findFloorUnits(to);
-  }, 800)
+  }, 800);
 };
 
 const findFloorUnits = (floorNumber) => {
@@ -320,14 +320,13 @@ const findFloorUnits = (floorNumber) => {
       });
 
       // Add sequential delay for each unit (300ms apart)
-      const unitDelay = 100 + (i * 30);
+      const unitDelay = 100 + i * 30;
       setTimeout(() => {
         apiInstance.value.translate(unit.instanceID, [position.x, position.y, position.z], {
           relative: true,
           duration: 3,
         });
       }, unitDelay);
-
     }
   }
 };
@@ -404,13 +403,15 @@ const showFloorAndUnits = (floorNumber) => {
   });
 };
 
-
-
-
-
 // Event Handlers
 const handleNodeClick = (item) => {
-  console.log('Node clicked:', item);
+  const nodeName = item.material?.name || '';
+  if (nodeName.startsWith('Hover_') || nodeName.startsWith('Unit_')) {
+    const exactName = nodeName.split('_')[1];
+    const floorNumber = exactName.length === 5 ? exactName.slice(1, 3) : exactName.slice(1, 2);
+    selectedFloor.value = floorNumber;
+    handleFloorChange();
+  }
 };
 
 // Viewer Configuration
